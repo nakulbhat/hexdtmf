@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #define SAMPLE_RATE 8000
 #define AMPLITUDE 16000
@@ -138,10 +139,43 @@ static char *build_encoding_string(void) {
     return buf;
 }
 
-/*
- * Core encoder: generates DTMF tones for each valid digit in `digits`
- * and writes the result to output_filename.
- */
+static char *read_stdin_string(void) {
+    size_t cap = 1024;
+    size_t len = 0;
+
+    char *buf = malloc(cap);
+    if (!buf) {
+        fputs("malloc failed\n", stderr);
+        return NULL;
+    }
+
+    int c;
+    while ((c = fgetc(stdin)) != EOF) {
+        if (c == ' ' || c == '\r' || c == '\n' || c == '\t')
+            continue;
+
+        if (len + 1 >= cap) {
+            cap *= 2;
+            char *tmp = realloc(buf, cap);
+            if (!tmp) {
+                free(buf);
+                return NULL;
+            }
+            buf = tmp;
+        }
+
+        buf[len++] = toupper((unsigned char)c);
+    }
+
+    if (len == 0) {
+        free(buf);
+        return NULL;
+    }
+
+    buf[len] = '\0';
+    return buf;
+}
+
 static int encode(const char *digits) {
     int tone_samples = (int)((double)tone_duration_ms / 1000.0 * SAMPLE_RATE);
     int gap_samples = (int)((double)gap_duration_ms / 1000.0 * SAMPLE_RATE);
@@ -223,8 +257,22 @@ int encoder(void) {
         return result;
     }
 
-    fputs("encoder: no input specified. "
-          "Provide -s <string> or -i <file>.\n",
-          stderr);
-    return 1;
+    /* fallback to stdin */
+    char *digits = read_stdin_string();
+    if (!digits) {
+        fputs("encoder: no input specified.\n", stderr);
+        return 1;
+    }
+
+    int result;
+    if (flags & COMPAT_FLAG) {
+        char *translated = apply_compat(digits);
+        result = encode(translated);
+        free(translated);
+    } else {
+        result = encode(digits);
+    }
+
+    free(digits);
+    return result;
 }

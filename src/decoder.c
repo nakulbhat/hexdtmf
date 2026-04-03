@@ -33,12 +33,17 @@ typedef struct {
 } WavData;
 
 static int load_wav(const char *filename, WavData *out) {
-    FILE *f = fopen(filename, "rb");
+    FILE *f;
+
+    if (!filename || strcmp(filename, "-") == 0)
+        f = stdin;
+    else
+        f = fopen(filename, "rb");
+
     if (!f) {
         perror("fopen");
         return 0;
     }
-
     char riff[4], wave[4];
     int  chunk_size;
     fread(riff,       1, 4, f);
@@ -47,7 +52,7 @@ static int load_wav(const char *filename, WavData *out) {
 
     if (memcmp(riff, "RIFF", 4) || memcmp(wave, "WAVE", 4)) {
         fputs("decoder: not a RIFF/WAVE file\n", stderr);
-        fclose(f);
+        if (f!=stdin) fclose(f);
         return 0;
     }
 
@@ -74,20 +79,20 @@ static int load_wav(const char *filename, WavData *out) {
         } else if (memcmp(id, "data", 4) == 0) {
             if (bits_per_sample != 16) {
                 fputs("decoder: only 16-bit PCM supported\n", stderr);
-                fclose(f);
+                if (f!=stdin) fclose(f);
                 return 0;
             }
             int n = size / sizeof(short);
             short *samples = malloc(size);
             if (!samples) {
                 fputs("decoder: malloc failed\n", stderr);
-                fclose(f);
+                if (f!=stdin) fclose(f);
                 return 0;
             }
             if ((int)fread(samples, sizeof(short), n, f) != n) {
                 fputs("decoder: short read on data chunk\n", stderr);
                 free(samples);
-                fclose(f);
+                if (f!=stdin) fclose(f);
                 return 0;
             }
 
@@ -95,7 +100,7 @@ static int load_wav(const char *filename, WavData *out) {
             if (num_channels == 2) {
                 int mono_n = n / 2;
                 short *mono = malloc(mono_n * sizeof(short));
-                if (!mono) { free(samples); fclose(f); return 0; }
+                if (!mono) { free(samples); if (f!=stdin) fclose(f); return 0; }
                 for (int i = 0; i < mono_n; i++)
                     mono[i] = (short)(((int)samples[i*2] + samples[i*2+1]) / 2);
                 free(samples);
@@ -108,7 +113,7 @@ static int load_wav(const char *filename, WavData *out) {
             out->sample_rate    = sample_rate;
             out->num_channels   = 1;
             out->bits_per_sample = bits_per_sample;
-            fclose(f);
+            if (f!=stdin) fclose(f);
             return 1;
 
         } else {
@@ -118,7 +123,7 @@ static int load_wav(const char *filename, WavData *out) {
     }
 
     fputs("decoder: data chunk not found\n", stderr);
-    fclose(f);
+    if (f!=stdin) fclose(f);
     return 0;
 }
 
@@ -315,9 +320,8 @@ int decoder(void) {
         fputs("decoder: DECODE_FLAG not set\n", stderr);
         return 1;
     }
-    if (!(flags & INPUT_FILENAME_FLAG) || !input_filename) {
-        fputs("decoder: no input file specified (-i <file>)\n", stderr);
-        return 1;
+    if (!(flags & INPUT_FILENAME_FLAG)) {
+        input_filename = "-";  // stdin
     }
 
     /* 1. Load WAV */

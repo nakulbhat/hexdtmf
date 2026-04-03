@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include "../include/args.h"
-#include "../include/encode.h"
+#include "../include/encoder.h"
 #include "../include/help.h"
 #include "../include/main.h"
 #include "../include/decoder.h"
