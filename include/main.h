@@ -1,6 +1,5 @@
 #ifndef MAIN
 #define MAIN
-void decode();
 
 typedef enum {
     ENCODE_FLAG = 1 << 0,

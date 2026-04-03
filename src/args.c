@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "../include/args.h"
 #include "../include/help.h"
@@ -88,6 +89,8 @@ void set_encoding_string(const char *string) {
     flags |= ENCODING_STRING_FLAG;
 
     encoding_string = strdup(string);
+    for (char *p = encoding_string; *p; p++)
+    *p = toupper((unsigned char)*p);
     LOG("Encoding string set to %s\n", encoding_string);
 }
 
