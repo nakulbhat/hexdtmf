@@ -6,6 +6,14 @@
 #include "../include/main.h"
 #include "../include/decoder.h"
 
+#define FREAD_CHECK_RET(ptr, size, count, stream) do { \
+    int res = fread(ptr, size, count, stream); \
+    if (res != (count)) { \
+        fprintf(stderr, "fread failed at %s:%d\n", __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0)
+
 #define SAMPLE_RATE       8000
 #define PI                3.14159265358979323846
 
@@ -46,9 +54,9 @@ static int load_wav(const char *filename, WavData *out) {
     }
     char riff[4], wave[4];
     int  chunk_size;
-    fread(riff,       1, 4, f);
-    fread(&chunk_size,4, 1, f);
-    fread(wave,       1, 4, f);
+    FREAD_CHECK_RET(riff,       1, 4, f);
+    FREAD_CHECK_RET(&chunk_size,4, 1, f);
+    FREAD_CHECK_RET(wave,       1, 4, f);
 
     if (memcmp(riff, "RIFF", 4) || memcmp(wave, "WAVE", 4)) {
         fputs("decoder: not a RIFF/WAVE file\n", stderr);
@@ -63,16 +71,16 @@ static int load_wav(const char *filename, WavData *out) {
     while (!feof(f)) {
         char   id[4];
         int    size;
-        if (fread(id,   1, 4, f) != 4) break;
-        if (fread(&size,4, 1, f) != 1) break;
+        FREAD_CHECK_RET(id,   1, 4, f); 
+        FREAD_CHECK_RET(&size,4, 1, f);
 
         if (memcmp(id, "fmt ", 4) == 0) {
-            fread(&audio_format,   2, 1, f);
-            fread(&num_channels,   2, 1, f);
-            fread(&sample_rate,    4, 1, f);
-            int byte_rate;   fread(&byte_rate,   4, 1, f);
-            short block_align; fread(&block_align, 2, 1, f);
-            fread(&bits_per_sample, 2, 1, f);
+            FREAD_CHECK_RET(&audio_format,   2, 1, f);
+            FREAD_CHECK_RET(&num_channels,   2, 1, f);
+            FREAD_CHECK_RET(&sample_rate,    4, 1, f);
+            int byte_rate;   FREAD_CHECK_RET(&byte_rate,   4, 1, f);
+            short block_align; FREAD_CHECK_RET(&block_align, 2, 1, f);
+            FREAD_CHECK_RET(&bits_per_sample, 2, 1, f);
             /* skip any extra fmt bytes */
             if (size > 16) fseek(f, size - 16, SEEK_CUR);
 
@@ -89,12 +97,7 @@ static int load_wav(const char *filename, WavData *out) {
                 if (f!=stdin) fclose(f);
                 return 0;
             }
-            if ((int)fread(samples, sizeof(short), n, f) != n) {
-                fputs("decoder: short read on data chunk\n", stderr);
-                free(samples);
-                if (f!=stdin) fclose(f);
-                return 0;
-            }
+            FREAD_CHECK_RET(samples, sizeof(short), n, f);
 
             /* If stereo, mix down to mono */
             if (num_channels == 2) {
