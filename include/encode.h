@@ -1,6 +1,6 @@
 #ifndef ENCODE
 #define ENCODE
 
-void encode(const char *digits);
+int encoder(void);
 
 #endif // !ENCODE
