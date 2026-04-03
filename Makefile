@@ -1,4 +1,4 @@
-TARGET = dtmf
+TARGET = hexdtmf
 
 CC = gcc
 CFLAGS = -Wall -Wextra -g -lm
